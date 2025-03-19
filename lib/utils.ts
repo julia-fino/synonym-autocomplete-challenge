@@ -31,5 +31,5 @@ export function generateUUID() {
 
 export const isDuplicateIdentifier = (environment: EquationEnvironment, identifier: string, equationId: string) => {
   const allIdentifiers = Object.values(environment).flat();
-  return allIdentifiers.some(id => id.code === identifier && (!id.equationId || id.equationId !== equationId));
+  return allIdentifiers.some(id => id.code.trim() === identifier.trim() && (!id.equationId || id.equationId !== equationId));
 }
