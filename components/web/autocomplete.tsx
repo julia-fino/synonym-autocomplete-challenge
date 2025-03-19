@@ -11,9 +11,13 @@ interface AutocompleteProps {
   onOptionSelected: (option: string) => void;
 }
 
+/**
+ * Component to display an autocomplete dropdown based on the user's input and equation environment
+ */
 const Autocomplete = (props: AutocompleteProps) => {
   const { x, y, environment, input, equationId, onOptionSelected, numSuggestions } = props;
 
+  // Filter identifiers based on the current input
   const filteredIdentifiers = useMemo(() => {
     const startsWith = input.split(' ').at(-1)?.trim()
 
@@ -25,8 +29,32 @@ const Autocomplete = (props: AutocompleteProps) => {
       ...environment.constants
     ].filter(identifier => identifier.code
       .toLowerCase()
+      // Don't include the current identifier that we're typing
       .startsWith(startsWith.toLowerCase()) && (equationId ? identifier.equationId !== equationId : true))
-      .map(identifier => identifier.code)
+      .map(identifier => {
+        const code = identifier.code.trim();
+
+        // Handle dot notation (only show the next part of the identifier)
+        if (code.includes('.')) {
+          const parts = code.split('.');
+          const startsWithParts = startsWith.split('.');
+
+          let partsIndex = 0;
+          for (let i = 0; i < startsWithParts.length; i++) {
+            // Whether to move to the next part of the identifier
+            if (parts[i] && parts[i] === startsWithParts[i]) {
+              partsIndex++;
+            }
+          }
+
+          if (partsIndex >= startsWithParts.length) {
+            partsIndex--; // Adjust for empty part after the last dot
+          }
+
+          return parts.at(partsIndex) ? parts.at(partsIndex)! : (parts.at(-1) ?? '');
+        }
+        return code;
+      })
       .slice(0, numSuggestions || 10))); // Limit to 10 suggestions by default
   }, [environment.constants, environment.functions, environment.variables, equationId, input, numSuggestions])
 
@@ -34,14 +62,18 @@ const Autocomplete = (props: AutocompleteProps) => {
     const parts = input.split(' ');
 
     // This is what we're replacing
-    parts.pop();
+    const toReplace = parts.pop() || '';
 
     let start = parts.join(' ');
-    if (start.length > 0) {
+
+    if (start.length > 0 && !start.endsWith('.')) {
       start += ' ';
     }
 
-    onOptionSelected(`${start}${option}`);
+    // Account for dots (keep what we have so far before the last dot)
+    const dotAdjustment = toReplace.includes('.') ? toReplace.split('.').slice(0, -1).join('.') + '.' : '';
+
+    onOptionSelected(`${start}${dotAdjustment}${option}`);
   }, [input, onOptionSelected]);
 
   // Listen for tab key to select the first suggestion

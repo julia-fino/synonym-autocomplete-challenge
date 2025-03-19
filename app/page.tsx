@@ -120,7 +120,8 @@ export default function Home() {
       ...initialEnvironment,
       variables: [
         ...initialEnvironment.variables,
-        ...equations.map(e => ({ code: e.lhs, type: "variable", equationId: e.id } as Identifier)).filter(i => i.code.trim() !== ""), // Only include non-empty identifiers
+        // Trim the input, and remove empty identifiers
+        ...equations.map(e => ({ code: e.lhs.trim(), type: "variable", equationId: e.id } as Identifier)).filter(i => i.code.trim() !== ""),
       ]
     })
   }, [equations]);

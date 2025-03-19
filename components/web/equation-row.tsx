@@ -17,6 +17,7 @@ interface EquationRowProps {
 const EquationRow = (props: EquationRowProps) => {
   const { equation, onEquationChanged, onRemoveEquation, environment } = props;
 
+  // The currently active input (for determining where to show the autocomplete)
   const [activeInput, setActiveInput] = useState<'lhs' | 'rhs'>('lhs');
 
   const [lhs, setLhs] = useState<string>(props.equation.lhs);
@@ -28,6 +29,7 @@ const EquationRow = (props: EquationRowProps) => {
     }
   }, [lhs, rhs, equation, onEquationChanged]);
 
+  // Trigger the onEquationChanged callback when lhs or rhs changes
   useEffect(() => {
     handleChange();
   }, [lhs, rhs, handleChange]);
@@ -47,6 +49,8 @@ const EquationRow = (props: EquationRowProps) => {
 
     const textWidth = textRef.current.getBoundingClientRect().width;
     const rect = inputRef.current.getBoundingClientRect();
+
+    // Position is the right edge of the input + the width of the text
     setCoords({ x: rect.x + textWidth, y: rect.y + rect.height });
   }, [rhs, lhs, activeInput]);
 
@@ -96,7 +100,7 @@ const EquationRow = (props: EquationRowProps) => {
           <Autocomplete
             x={coords.x}
             y={coords.y}
-            // Only filter on the current input on the left
+            // Only filter on the current input on the left input
             equationId={activeInput === 'lhs' ? equation.id : undefined}
             environment={environment}
             input={activeInput === 'lhs' ? lhs : rhs}
