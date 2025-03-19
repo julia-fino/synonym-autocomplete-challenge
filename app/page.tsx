@@ -5,13 +5,13 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Equation } from "@/lib/types/equation";
 import Header from "@/components/web/header";
 import SidebarPanel from "@/components/web/sidebar-panel";
 import EditorPanel from "@/components/web/editor-panel";
 import { generateUUID } from "@/lib/utils";
-import { EquationEnvironment } from "@/lib/types/identifiers";
+import { EquationEnvironment, Identifier } from "@/lib/types/identifiers";
 
 // Feel free to change these! They're just for testing, and meant to mimic
 // the IDE environment in which a user would be writing equations.
@@ -77,13 +77,57 @@ export default function Home() {
   const [equations, setEquations] = useState<Equation[]>([]);
   const [environment, setEnvironment] = useState<EquationEnvironment>(initialEnvironment);
 
-  const addEquation = () => {
-    setEquations([...equations, { id: generateUUID(), lhs: "", rhs: "" }]);
-  }
+  const addEquation = useCallback(() => {
+    setEquations(prev => [...prev, { id: generateUUID(), lhs: "", rhs: "" }]);
+  }, []);
 
-  // Ensure that at least one equation is present when the page loads.
+  const removeEquation = useCallback((id: string) => {
+    setEquations(prev => {
+      const oldIndex = prev.findIndex(e => e.id === id);
+
+      if (oldIndex === -1) return prev;
+
+      const newEquations = [...prev];
+      newEquations.splice(oldIndex, 1);
+      return newEquations;
+    });
+  }, []);
+
+  const onEquationChanged = useCallback((id: string, lhs: string, rhs: string) => {
+    setEquations(prev => {
+      const existingIndex = prev.findIndex(e => e.id === id);
+
+      if (existingIndex === -1) return prev;
+
+      const existing = prev[existingIndex];
+      if (existing && existing.lhs !== lhs || existing.rhs !== rhs) {
+        const newEquations = [...prev];
+        newEquations.splice(existingIndex, 1, { ...existing, lhs, rhs });
+        return newEquations;
+      }
+
+      return prev
+    });
+  }, []);
+
+  const clearEquations = useCallback(() => {
+    setEquations([]);
+  }, []);
+
+  // Update environment when equations change (equation identifiers are variables)
   useEffect(() => {
-    if (equations.length === 0) {
+    setEnvironment({
+      ...initialEnvironment,
+      variables: [
+        ...initialEnvironment.variables,
+        ...equations.map(e => ({ code: e.lhs, type: "variable", equationId: e.id } as Identifier)),
+      ]
+    })
+  }, [equations]);
+
+  // Ensure that at least one equation row is always present
+  useEffect(() => {
+    if ((Object.keys(equations)).length === 0) {
       addEquation();
     }
   }, [equations, addEquation]);
@@ -94,9 +138,15 @@ export default function Home() {
         <Header />
         <ResizablePanelGroup direction="horizontal">
           <ResizablePanel defaultSize={editorPanelWidth}>
-            <EditorPanel equations={equations} addEquation={addEquation} environment={environment} />
-          </ResizablePanel> 
-          <ResizableHandle withHandle/>
+            <EditorPanel
+              clearEquations={clearEquations}
+              onEquationChanged={onEquationChanged}
+              equations={equations}
+              addEquation={addEquation}
+              removeEquation={removeEquation}
+              environment={environment} />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
           <ResizablePanel defaultSize={sidebarPanelWidth}>
             <SidebarPanel environment={environment} />
           </ResizablePanel>

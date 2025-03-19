@@ -1,22 +1,91 @@
+import { TrashIcon } from "lucide-react";
 import { Equation } from "@/lib/types/equation";
 import { Input } from "../ui/input";
-import { useState } from "react";
+import { Button } from "../ui/button";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EquationEnvironment } from "@/lib/types/identifiers";
+import { isDuplicateIdentifier } from "@/lib/utils";
+import Autocomplete from "./autocomplete";
 
 interface EquationRowProps {
+  environment: EquationEnvironment;
   equation: Equation;
+  onEquationChanged: (lhs: string, rhs: string) => void;
+  onRemoveEquation: () => void;
 }
 
 const EquationRow = (props: EquationRowProps) => {
-  const { equation } = props;
-  const [lhs, setLhs] = useState<string>(equation.lhs);
-  const [rhs, setRhs] = useState<string>(equation.rhs);
+  const { equation, onEquationChanged, onRemoveEquation, environment } = props;
+
+  const [lhs, setLhs] = useState<string>(props.equation.lhs);
+  const [rhs, setRhs] = useState<string>(props.equation.rhs);
+
+  const handleChange = useCallback(() => {
+    if (lhs !== equation.lhs || rhs !== equation.rhs) {
+      onEquationChanged(lhs, rhs)
+    }
+  }, [lhs, rhs, equation, onEquationChanged]);
+
+  useEffect(() => {
+    handleChange();
+  }, [lhs, rhs, handleChange]);
+
+  const isDuplicate = useMemo(() => isDuplicateIdentifier(environment, lhs, equation.id), [environment, lhs, equation.id]);
+
+  const [showAutocomplete, setShowAutocomplete] = useState<boolean>(false);
+  const [coords, setCoords] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  // Get cursor position for autocomplete
+  useEffect(() => {
+    if (!inputRef.current || !textRef.current) return;
+
+    const textWidth = textRef.current.getBoundingClientRect().width;
+    const rect = inputRef.current.getBoundingClientRect();
+    setCoords({ x: rect.x + textWidth, y: rect.y + rect.height });
+  }, [rhs]);
 
   return (
-    <div className="flex flex-row items-center gap-4 w-full">
-      {/* TODO: Get rid of the annoying focus outline! */}
-      <Input className="min-w-12 max-w-[300px] font-mono" value={lhs} onChange={(e) => setLhs(e.target.value)} />
-      <span className="text-lg text-gray-500">=</span>
-      <Input className="min-w-12 font-mono" value={rhs} onChange={(e) => setRhs(e.target.value)} />
+    <div className="flex flex-col w-full gap-2">
+      <div className="flex flex-row items-center gap-4 w-full">
+        <Input
+          className={`max-w-[300px] min-w-12 font-mono focus:outline-none ${isDuplicate ? 'text-red-600' : ''}`}
+          value={lhs}
+          onChange={(e) => setLhs(e.target.value)}
+        />
+        <span className="text-lg text-gray-500">=</span>
+        <div className="w-full">
+          <Input
+            ref={inputRef}
+            onBlur={() => {
+              setShowAutocomplete(false);
+            }}
+            className="min-w-12 font-mono focus:outline-none"
+            value={rhs}
+            onChange={(e) => {
+              setShowAutocomplete(e.target.value.length > 0);
+              setRhs(e.target.value)
+            }} />
+          {/* Invisible text for cursor position calc */}
+          <span ref={textRef} className="absolute invisible px-2">{rhs}</span>
+        </div>
+        <Button variant="secondary" size="sm" className="ml-auto" onClick={onRemoveEquation}>
+          <TrashIcon className="w-4 h-4" />
+        </Button>
+        {showAutocomplete &&
+          <Autocomplete
+            x={coords.x}
+            y={coords.y}
+            environment={environment}
+            input={rhs}
+            onOptionSelected={(option) => {
+              setRhs(option);
+              setShowAutocomplete(false);
+            }}
+            numSuggestions={10} />}
+      </div>
+      {isDuplicate && <span className="text-red-600 text-sm">Duplicate identifier</span>}
     </div>
   )
 }
