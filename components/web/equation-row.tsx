@@ -17,6 +17,8 @@ interface EquationRowProps {
 const EquationRow = (props: EquationRowProps) => {
   const { equation, onEquationChanged, onRemoveEquation, environment } = props;
 
+  const [activeInput, setActiveInput] = useState<'lhs' | 'rhs'>('lhs');
+
   const [lhs, setLhs] = useState<string>(props.equation.lhs);
   const [rhs, setRhs] = useState<string>(props.equation.rhs);
 
@@ -34,30 +36,47 @@ const EquationRow = (props: EquationRowProps) => {
 
   const [showAutocomplete, setShowAutocomplete] = useState<boolean>(false);
   const [coords, setCoords] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
-  const inputRef = useRef<HTMLInputElement>(null);
+  const lhsRef = useRef<HTMLInputElement>(null);
+  const rhsRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
 
   // Get cursor position for autocomplete
   useEffect(() => {
+    const inputRef = activeInput === 'lhs' ? lhsRef : rhsRef;
     if (!inputRef.current || !textRef.current) return;
 
     const textWidth = textRef.current.getBoundingClientRect().width;
     const rect = inputRef.current.getBoundingClientRect();
     setCoords({ x: rect.x + textWidth, y: rect.y + rect.height });
-  }, [rhs]);
+  }, [rhs, lhs, activeInput]);
 
   return (
     <div className="flex flex-col w-full gap-2">
       <div className="flex flex-row items-center gap-4 w-full">
         <Input
+          ref={lhsRef}
+          onBlur={() => {
+            setShowAutocomplete(false);
+          }}
+          onFocus={() => {
+            setActiveInput('lhs');
+          }}
           className={`max-w-[300px] min-w-12 font-mono focus:outline-none ${isDuplicate ? 'text-red-600' : ''}`}
           value={lhs}
-          onChange={(e) => setLhs(e.target.value)}
+          onChange={(e) => {
+            setShowAutocomplete(e.target.value.length > 0);
+            setLhs(e.target.value)
+          }}
         />
+        {/* Invisible text for cursor position calc */}
+        {activeInput && 'lhs' && <span ref={textRef} className="absolute invisible px-2">{rhs}</span>}
         <span className="text-lg text-gray-500">=</span>
         <div className="w-full">
           <Input
-            ref={inputRef}
+            onFocus={() => {
+              setActiveInput('rhs');
+            }}
+            ref={rhsRef}
             onBlur={() => {
               setShowAutocomplete(false);
             }}
@@ -68,7 +87,7 @@ const EquationRow = (props: EquationRowProps) => {
               setRhs(e.target.value)
             }} />
           {/* Invisible text for cursor position calc */}
-          <span ref={textRef} className="absolute invisible px-2">{rhs}</span>
+          {activeInput && 'rhs' && <span ref={textRef} className="absolute invisible px-2">{rhs}</span>}
         </div>
         <Button variant="secondary" size="sm" className="ml-auto" onClick={onRemoveEquation}>
           <TrashIcon className="w-4 h-4" />
@@ -77,10 +96,16 @@ const EquationRow = (props: EquationRowProps) => {
           <Autocomplete
             x={coords.x}
             y={coords.y}
+            // Only filter on the current input on the left
+            equationId={activeInput === 'lhs' ? equation.id : undefined}
             environment={environment}
-            input={rhs}
+            input={activeInput === 'lhs' ? lhs : rhs}
             onOptionSelected={(option) => {
-              setRhs(option);
+              if (activeInput === 'lhs') {
+                setLhs(option);
+              } else {
+                setRhs(option);
+              }
               setShowAutocomplete(false);
             }}
             numSuggestions={10} />}
