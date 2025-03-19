@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { EquationEnvironment } from "./types/identifiers";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -26,4 +27,9 @@ export function generateUUID() {
   }
   
   return uuid;
+}
+
+export const isDuplicateIdentifier = (environment: EquationEnvironment, identifier: string, equationId: string) => {
+  const allIdentifiers = Object.values(environment).flat();
+  return allIdentifiers.some(id => id.code === identifier && (!id.equationId || id.equationId !== equationId));
 }
